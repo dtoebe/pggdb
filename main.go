@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
+	"github.com/dgraph-io/dgraph/client"
 	"google.golang.org/grpc"
 )
 
@@ -16,12 +20,18 @@ type NewTicket struct {
 	Tags []string
 }
 
+type Ticket struct {
+	Title string `json:"title,omitempty"`
+	Desc  string `json:"desc,omitempty"`
+}
+
 var (
 	server  *http.Server
 	tickets []NewTicket
 )
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Index")
 	t, _ := template.ParseFiles("public/base.html", "public/index.html")
 
 	t.ExecuteTemplate(w, "base", nil)
@@ -59,15 +69,55 @@ func save(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	log.Println("Start")
 	server = &http.Server{
 		Addr: "127.0.0.1:8000",
 	}
 
-	conn, err := grpc.Dial("127.0.0.1:9080", grpc.WithInsecure)
+	conn, err := grpc.Dial("127.0.0.1:9080", grpc.WithInsecure())
 	if err != nil {
+		log.Println(err)
 		panic(err)
 	}
 	defer conn.Close()
+
+	clientDir, err := ioutil.TempDir("", "client_")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(clientDir)
+
+	dc := client.NewDgraphClient([]*grpc.ClientConn{conn}, client.DefaultOptions, clientDir)
+
+	req := client.Req{}
+
+	req.SetQuery(`
+		{
+			tickets(func: eq(type, "ticket")) {
+				title
+				desc
+			}
+		}	
+	`)
+
+	res, err := dc.Run(context.Background(), &req)
+	if err != nil {
+		log.Println(err)
+	}
+
+	type Root struct {
+		Ticket []Ticket `json:"tickets,omitempty"`
+	}
+
+	log.Printf("%+v\n", res)
+
+	var t Root
+	err = client.Unmarshal(res.N, &t)
+	if err != nil {
+		log.Println(err)
+	}
+
+	log.Printf("%+v\n", t)
 
 	tickets = append(tickets, NewTicket{
 		Name: "Dummy customer",
@@ -80,7 +130,7 @@ func main() {
 	http.HandleFunc("/create", createHandler)
 	http.HandleFunc("/", indexHandler)
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		panic(err)
 	}
