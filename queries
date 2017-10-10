@@ -1,0 +1,56 @@
+# Get top users by ticket.tag
+{
+  var(func: allofterms(title, "first")) {
+    ticket as _uid_
+  }
+  
+  var(func: uid(ticket)) {
+    a as math(1)
+    tag {
+      ~skill {
+      	userScore as math(a)
+    	}
+    }
+  }
+  
+  ticket(func: uid(ticket)) {
+    title
+    desc
+    tag {
+      users  : ~skill {
+      	name
+      	edges : val(userScore)
+    	}
+  	}
+  }
+}
+
+
+# Get all tickets
+{
+  tickets(func: eq(type, "ticket")) {
+    title
+    desc
+    tag {
+      name
+    }
+  }
+}
+
+
+# Get all users
+{
+  tickets(func: eq(type, "user")) {
+    name
+    skill {
+      name
+    }
+  }
+}
+
+# Get all skills
+{
+  tickets(func: eq(type, "skill")) {
+    name
+  }
+}

@@ -1,0 +1,23 @@
+{{ define "content" }}
+
+<p>admin..</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Customer Name</th>
+            <th>Tags</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{ range $i, $t := . }}
+        <tr>
+            <th scope="row">{{ $i }}</th>
+            <td>{{ $t.Name }}</td>
+            <td>{{ $t.Tags }}</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
+
+{{ end }}
